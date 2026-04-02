@@ -55,8 +55,10 @@ const row = StyleSheet.create({
   },
 })
 
+const BASE_URL = 'https://studer-os.vercel.app'
+
 export default function BevestigingScherm({ navigation, route }: Props) {
-  const { data, pushToken, track } = route.params
+  const { data, pushToken, track, cvUri, cvNaam, cvMime } = route.params
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error,   setError]   = useState<string | null>(null)
@@ -65,7 +67,7 @@ export default function BevestigingScherm({ navigation, route }: Props) {
     setLoading(true)
     setError(null)
     try {
-      await submitApplication({
+      const result = await submitApplication({
         voornaam:      data.voornaam      ?? '',
         achternaam:    data.achternaam    ?? '',
         telefoon:      data.telefoon      ?? '',
@@ -77,6 +79,25 @@ export default function BevestigingScherm({ navigation, route }: Props) {
         track,
         push_token:    pushToken,
       })
+
+      // Upload CV if selected
+      if (cvUri && result?.id) {
+        try {
+          const formData = new FormData()
+          formData.append('file', {
+            uri:  cvUri,
+            name: cvNaam ?? 'cv.pdf',
+            type: cvMime ?? 'application/pdf',
+          } as unknown as Blob)
+          await fetch(`${BASE_URL}/api/applications/${result.id}/cv`, {
+            method: 'POST',
+            body:   formData,
+          })
+        } catch {
+          // CV upload is non-critical — proceed anyway
+        }
+      }
+
       setSuccess(true)
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Onbekende fout'
@@ -150,6 +171,7 @@ export default function BevestigingScherm({ navigation, route }: Props) {
             <Row label="Stad"            value={data.stad} />
             <Row label="Hoe gevonden"    value={data.hoe_bij_studer} />
             <Row label="Doorverwezen door" value={data.via_wie} />
+            {cvNaam ? <Row label="CV" value={cvNaam} /> : null}
           </View>
 
           {error && (

@@ -66,10 +66,11 @@ export interface ApplicationData {
   push_token?: string | null
 }
 
-export async function submitApplication(data: ApplicationData) {
-  const { error } = await supabase.from('applications').insert(data)
+export async function submitApplication(data: ApplicationData): Promise<{ id: string }> {
+  const { data: row, error } = await supabase.from('applications').insert(data).select('id').single()
   if (error) {
     console.error('[Supabase] submitApplication error:', JSON.stringify(error, null, 2))
     throw error
   }
+  return row as { id: string }
 }

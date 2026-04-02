@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RouteProp } from '@react-navigation/native'
+import * as DocumentPicker from 'expo-document-picker'
 import { RootStackParamList } from '../../App'
 import ProgressBar from '../components/ProgressBar'
 
@@ -55,8 +56,29 @@ export default function StapTweeScherm({ navigation, route }: Props) {
   const [hoe,          setHoe]          = useState<string | undefined>()
   const [viaWie,       setViaWie]       = useState('')
   const [errors,       setErrors]       = useState<Record<string, string>>({})
+  const [cvUri,        setCvUri]        = useState<string | null>(null)
+  const [cvNaam,       setCvNaam]       = useState<string | null>(null)
+  const [cvMime,       setCvMime]       = useState<string | null>(null)
 
   const showViaWie = hoe === 'Via een vriend/kennis'
+
+  async function pickCv() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['application/pdf', 'application/msword',
+               'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+        copyToCacheDirectory: true,
+      })
+      if (!result.canceled && result.assets?.[0]) {
+        const asset = result.assets[0]
+        setCvUri(asset.uri)
+        setCvNaam(asset.name)
+        setCvMime(asset.mimeType ?? 'application/pdf')
+      }
+    } catch {
+      // User cancelled or error
+    }
+  }
 
   function validate(): boolean {
     const e: Record<string, string> = {}
@@ -80,6 +102,9 @@ export default function StapTweeScherm({ navigation, route }: Props) {
         hoe_bij_studer: hoe,
         via_wie: showViaWie ? viaWie.trim() : undefined,
       },
+      cvUri:  cvUri ?? null,
+      cvNaam: cvNaam ?? null,
+      cvMime: cvMime ?? null,
     })
   }
 
@@ -175,6 +200,24 @@ export default function StapTweeScherm({ navigation, route }: Props) {
               />
               {!!errors.viaWie && <Text style={styles.error}>{errors.viaWie}</Text>}
             </View>
+          )}
+
+          {/* ─── CV Upload ───────────────────────────────── */}
+          <Text style={styles.sectionLabel}>
+            CV opladen{' '}
+            <Text style={styles.optioneel}>(optioneel)</Text>
+          </Text>
+          {cvUri ? (
+            <View style={styles.cvRow}>
+              <Text style={styles.cvNaam} numberOfLines={1}>{cvNaam ?? 'Bestand'}</Text>
+              <TouchableOpacity onPress={() => { setCvUri(null); setCvNaam(null); setCvMime(null) }}>
+                <Text style={styles.cvVerwijder}>Verwijderen</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity style={styles.cvBtn} onPress={pickCv} activeOpacity={0.75}>
+              <Text style={styles.cvBtnText}>Kies PDF of Word (max 10 MB)</Text>
+            </TouchableOpacity>
           )}
         </ScrollView>
 
@@ -308,6 +351,38 @@ const styles = StyleSheet.create({
   },
   inputError: { borderColor: '#CC4444' },
   error: { color: '#CC4444', fontSize: 13, marginTop: 6 },
+
+  optioneel: {
+    color: '#333333',
+    fontWeight: '400',
+    fontSize: 11,
+    textTransform: 'none',
+    letterSpacing: 0,
+  },
+  cvBtn: {
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginBottom: 32,
+  },
+  cvBtnText: { color: '#444444', fontSize: 14 },
+  cvRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: '#1A1A1A',
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 32,
+    gap: 8,
+  },
+  cvNaam: { flex: 1, color: '#CCCCCC', fontSize: 13 },
+  cvVerwijder: { color: '#555555', fontSize: 12 },
 
   footer: {
     flexDirection: 'row',

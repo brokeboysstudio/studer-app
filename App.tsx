@@ -27,7 +27,7 @@ export type RootStackParamList = {
   Welkom:      undefined
   StapEen:     { pushToken: string | null; track: 'direct' | 'select' }
   StapTwee:    { pushToken: string | null; track: 'direct' | 'select'; data: Partial<ApplicationData> }
-  Bevestiging: { pushToken: string | null; track: 'direct' | 'select'; data: Partial<ApplicationData> }
+  Bevestiging: { pushToken: string | null; track: 'direct' | 'select'; data: Partial<ApplicationData>; cvUri?: string | null; cvNaam?: string | null; cvMime?: string | null }
 }
 
 // ── Tab icon component ────────────────────────────────────────────────────────
