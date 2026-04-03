@@ -13,6 +13,62 @@ export interface WorkerMessage {
   aangemaakt_op: string
 }
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface WagenInfo {
+  id:          string
+  nummerplaat: string
+  merk:        string | null
+  model:       string | null
+  kantoor:     string | null
+}
+
+export interface SchadeHistorie {
+  id:           string
+  zone:         string
+  foto_url:     string
+  omschrijving: string | null
+  nieuw:        boolean
+  created_at:   string
+}
+
+// ── Wagens ────────────────────────────────────────────────────────────────────
+
+export async function fetchWagenSchade(wagenId: string): Promise<SchadeHistorie[]> {
+  const res = await fetch(`${BASE}/api/wagens/${wagenId}/schade`)
+  if (!res.ok) throw new Error('Schadehistorie ophalen mislukt')
+  return res.json()
+}
+
+export async function createCheck(wagenId: string, body: {
+  employee_id?: string
+  shift_id?:   string
+  type:        'vertrek' | 'aankomst'
+  vuil?:       boolean
+  opmerkingen?: string
+}): Promise<{ check_id: string }> {
+  const res = await fetch(`${BASE}/api/wagens/${wagenId}/checks`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error('Check aanmaken mislukt')
+  return res.json()
+}
+
+export async function submitSchade(wagenId: string, checkId: string, body: {
+  zone:          string
+  omschrijving?: string
+  foto:          string  // base64
+}): Promise<void> {
+  const res = await fetch(`${BASE}/api/wagens/${wagenId}/checks/${checkId}/schade`, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error('Schade uploaden mislukt')
+}
+
 // ── Messages ──────────────────────────────────────────────────────────────────
 
 export async function fetchMessages(employeeId: string): Promise<WorkerMessage[]> {

@@ -20,6 +20,7 @@ import BeschikbaarheidScherm from './src/screens/BeschikbaarheidScherm'
 import PrikklokScherm        from './src/screens/PrikklokScherm'
 import ContractenScherm      from './src/screens/ContractenScherm'
 import InboxScherm           from './src/screens/InboxScherm'
+import AutocheckScherm      from './src/screens/AutocheckScherm'
 
 import { ApplicationData } from './src/lib/supabase'
 
@@ -41,6 +42,7 @@ function TabIcon({ name, color, badge }: { name: string; color: string; badge?: 
     Prikklok:       '⏱',
     Contracten:     '📄',
     Inbox:          '✉️',
+    Autocheck:      '🚗',
   }
   return (
     <View style={{ alignItems: 'center' }}>
@@ -117,6 +119,7 @@ function WorkerTabs() {
       <Tab.Screen name="Prikklok"        component={PrikklokScherm} />
       <Tab.Screen name="Contracten"      component={ContractenScherm} />
       <Tab.Screen name="Inbox"           component={InboxScherm} />
+      <Tab.Screen name="Autocheck"       component={AutocheckScherm} />
     </Tab.Navigator>
   )
 }
