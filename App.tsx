@@ -39,7 +39,6 @@ Notifications.setNotificationHandler({
 })
 
 async function registerForPushNotifications(): Promise<string | null> {
-  // Only run on physical devices (simulators don't support push)
   if (Platform.OS === 'web') return null
   const { status: existing } = await Notifications.getPermissionsAsync()
   let finalStatus = existing
@@ -63,7 +62,7 @@ export type RootStackParamList = {
   Bevestiging: { pushToken: string | null; track: 'direct' | 'select'; data: Partial<ApplicationData>; cvUri?: string | null; cvNaam?: string | null; cvMime?: string | null }
 }
 
-// ── Tab icon component ────────────────────────────────────────────────────────
+// ── Tab icon ──────────────────────────────────────────────────────────────────
 
 function TabIcon({ icon, color, badge }: { icon: string; color: string; badge?: number }) {
   return (
@@ -110,7 +109,7 @@ function WorkerTabs({ isChauffeur }: { isChauffeur: boolean }) {
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [])
 
-  const tabBar = ({
+  const screenOpts = {
     headerShown: false,
     tabBarStyle: {
       backgroundColor: '#0d0d0d',
@@ -123,10 +122,10 @@ function WorkerTabs({ isChauffeur }: { isChauffeur: boolean }) {
     tabBarActiveTintColor:   '#fff',
     tabBarInactiveTintColor: '#444',
     tabBarLabelStyle: { fontSize: 10, marginTop: 1 },
-  })
+  }
 
   return (
-    <Tab.Navigator screenOptions={tabBar}>
+    <Tab.Navigator screenOptions={screenOpts}>
       <Tab.Screen
         name="Home"
         component={HomeScherm}
@@ -166,13 +165,44 @@ function WorkerTabs({ isChauffeur }: { isChauffeur: boolean }) {
   )
 }
 
+// ── Worker stack (tabs + modal screens) ───────────────────────────────────────
+// Prikklok, Contracten en Autocheck zijn bereikbaar via navigate() vanuit
+// tabs. Ze zitten in deze parent stack zodat ze over de tab bar heen renderen.
+
+const WorkerStack = createNativeStackNavigator()
+
+function WorkerStackNav({ isChauffeur }: { isChauffeur: boolean }) {
+  return (
+    <WorkerStack.Navigator screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0a0a0a' } }}>
+      <WorkerStack.Screen name="Tabs">
+        {() => <WorkerTabs isChauffeur={isChauffeur} />}
+      </WorkerStack.Screen>
+      <WorkerStack.Screen
+        name="Prikklok"
+        component={PrikklokScherm}
+        options={{ animation: 'slide_from_bottom' }}
+      />
+      <WorkerStack.Screen
+        name="Contracten"
+        component={ContractenScherm}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <WorkerStack.Screen
+        name="Autocheck"
+        component={AutocheckScherm}
+        options={{ animation: 'slide_from_right' }}
+      />
+    </WorkerStack.Navigator>
+  )
+}
+
 // ── Registration stack ────────────────────────────────────────────────────────
 
-const Stack = createNativeStackNavigator<RootStackParamList>()
+const RegStack = createNativeStackNavigator<RootStackParamList>()
 
 function RegistrationStack() {
   return (
-    <Stack.Navigator
+    <RegStack.Navigator
       initialRouteName="Welkom"
       screenOptions={{
         headerShown: false,
@@ -180,11 +210,11 @@ function RegistrationStack() {
         animation: 'slide_from_right',
       }}
     >
-      <Stack.Screen name="Welkom"      component={WelkomScherm} />
-      <Stack.Screen name="StapEen"     component={StapEenScherm} />
-      <Stack.Screen name="StapTwee"    component={StapTweeScherm} />
-      <Stack.Screen name="Bevestiging" component={BevestigingScherm} />
-    </Stack.Navigator>
+      <RegStack.Screen name="Welkom"      component={WelkomScherm} />
+      <RegStack.Screen name="StapEen"     component={StapEenScherm} />
+      <RegStack.Screen name="StapTwee"    component={StapTweeScherm} />
+      <RegStack.Screen name="Bevestiging" component={BevestigingScherm} />
+    </RegStack.Navigator>
   )
 }
 
@@ -197,25 +227,25 @@ export default function App() {
   const [isChauffeur, setIsChauffeur] = useState(false)
 
   useEffect(() => {
-    // Check initial session
     supabase.auth.getSession().then(({ data: { session: s } }) => {
-      if (s) {
-        initWorker()
-      } else {
-        setMode('registration')
-      }
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       if (s) initWorker()
       else   setMode('registration')
+    })
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      if (s) {
+        initWorker()
+      } else if (event === 'SIGNED_OUT') {
+        // Explicit logout → toon LoginScherm zodat bestaande workers kunnen inloggen
+        setMode('login')
+      }
+      // INITIAL_SESSION zonder session → al afgehandeld door getSession hierboven
     })
 
     return () => subscription.unsubscribe()
   }, [])
 
   async function initWorker() {
-    // Detect role
     const { data: { user } } = await supabase.auth.getUser()
     if (user?.phone) {
       const { data: emp } = await supabase
@@ -223,13 +253,10 @@ export default function App() {
         .ilike('phone', `%${user.phone.replace(/\D/g, '').slice(-9)}%`)
         .limit(1).single()
       if (emp) {
-        // Role detection
         try {
           const { isChauffeur: isC } = await fetchRole(emp.id)
           setIsChauffeur(isC)
-        } catch { /* default to worker */ }
-
-        // Push token registration
+        } catch { /* default worker */ }
         try {
           const token = await registerForPushNotifications()
           if (token) await savePushToken(emp.id, token)
@@ -251,7 +278,7 @@ export default function App() {
     <NavigationContainer>
       <StatusBar style="light" />
       {mode === 'worker' ? (
-        <WorkerTabs isChauffeur={isChauffeur} />
+        <WorkerStackNav isChauffeur={isChauffeur} />
       ) : mode === 'login' ? (
         <LoginScherm onLogin={() => initWorker()} />
       ) : (

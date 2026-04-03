@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, RefreshControl, Linking,
 } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import { supabase } from '../lib/supabase'
 import { fetchWagenToewijzing, WagenToewijzing } from '../lib/api'
 
@@ -16,6 +17,7 @@ function fmtTime(s: string | null, e: string | null) {
 }
 
 export default function WagenScherm() {
+  const navigation = useNavigation<any>()
   const [loading,     setLoading]     = useState(true)
   const [refreshing,  setRefreshing]  = useState(false)
   const [empId,       setEmpId]       = useState<string | null>(null)
@@ -120,6 +122,13 @@ export default function WagenScherm() {
                 <Text style={s.actionBtnText}>Navigeren</Text>
               </TouchableOpacity>
             )}
+            <TouchableOpacity
+              style={[s.actionBtn, s.actionBtnPrimary]}
+              onPress={() => navigation.navigate('Autocheck')}
+            >
+              <Text style={s.actionBtnIcon}>🚗</Text>
+              <Text style={s.actionBtnText}>Autocheck</Text>
+            </TouchableOpacity>
           </View>
         </>
       )}

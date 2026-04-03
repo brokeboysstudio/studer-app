@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, Alert, Switch,
 } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import { supabase } from '../lib/supabase'
 
 // ── Beschikbaarheid (ingebouwd in Profiel) ────────────────────────────────────
@@ -35,6 +36,7 @@ function toISO(y: number, m: number, d: number) {
 // ── Main screen ───────────────────────────────────────────────────────────────
 
 export default function ProfielScherm() {
+  const navigation = useNavigation<any>()
   const [loading,   setLoading]   = useState(true)
   const [empId,     setEmpId]     = useState<string | null>(null)
   const [fullName,  setFullName]  = useState('')
@@ -165,6 +167,10 @@ export default function ProfielScherm() {
             </View>
           </View>
 
+          <TouchableOpacity style={s.navBtn2} onPress={() => navigation.navigate('Contracten')}>
+            <Text style={s.navBtn2Text}>📄  Contracten</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={s.dangerBtn} onPress={handleLogout}>
             <Text style={s.dangerBtnText}>Afmelden</Text>
           </TouchableOpacity>
@@ -264,6 +270,8 @@ const s = StyleSheet.create({
   avatarText:        { fontSize: 18, fontWeight: '700', color: '#60a5fa' },
   name:              { fontSize: 15, fontWeight: '700', color: '#fff', marginBottom: 2 },
   meta:              { fontSize: 12, color: '#444' },
+  navBtn2:           { backgroundColor: '#111', borderWidth: 1, borderColor: '#1e3a5f', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8 },
+  navBtn2Text:       { fontSize: 13, color: '#60a5fa', fontWeight: '600' },
   dangerBtn:         { borderWidth: 1, borderColor: '#2e1010', borderRadius: 10, padding: 14, alignItems: 'center', marginTop: 8 },
   dangerBtnText:     { fontSize: 13, color: '#f87171', fontWeight: '600' },
   // Calendar

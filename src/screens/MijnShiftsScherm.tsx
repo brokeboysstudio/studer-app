@@ -4,6 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Modal, Alert,
   TextInput, Platform,
 } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import { supabase } from '../lib/supabase'
 import { indienTerugtrekking } from '../lib/api'
 
@@ -45,6 +46,7 @@ function fmtDate(d: string) {
 type TerugtrekkingStep = 'warning' | 'reden' | 'confirm' | 'done'
 
 export default function MijnShiftsScherm() {
+  const navigation = useNavigation<any>()
   const [events,   setEvents]   = useState<PlannerEvent[]>([])
   const [loading,  setLoading]  = useState(true)
   const [refresh,  setRefresh]  = useState(false)
@@ -71,18 +73,25 @@ export default function MijnShiftsScherm() {
     setEmpId(emp.id)
 
     const today = new Date().toISOString().split('T')[0]
-    const { data } = await supabase
-      .from('planner_event_workers')
-      .select('event:planner_events(id, titel, klant, datum_start, tijdstip_start, tijdstip_einde, locatie, briefing, dresscode, contactpersoon_naam, contactpersoon_tel, status)')
-      .eq('employee_id', emp.id)
-      .gte('planner_events.datum_start', today)
-      .order('planner_events.datum_start', { ascending: true })
-      .limit(30)
 
-    const evs = (data ?? [])
-      .map((r: { event: PlannerEvent }) => r.event)
-      .filter(Boolean)
-      .sort((a: PlannerEvent, b: PlannerEvent) => a.datum_start.localeCompare(b.datum_start))
+    // Two-step query: can't filter on joined table columns in Supabase JS v2
+    const { data: assignments } = await supabase
+      .from('planner_event_workers')
+      .select('event_id')
+      .eq('employee_id', emp.id)
+
+    const eventIds = (assignments ?? []).map((r: { event_id: string }) => r.event_id)
+    let evs: PlannerEvent[] = []
+    if (eventIds.length > 0) {
+      const { data } = await supabase
+        .from('planner_events')
+        .select('id, titel, klant, datum_start, tijdstip_start, tijdstip_einde, locatie, briefing, dresscode, contactpersoon_naam, contactpersoon_tel, status')
+        .in('id', eventIds)
+        .gte('datum_start', today)
+        .order('datum_start', { ascending: true })
+        .limit(30)
+      evs = (data ?? []) as PlannerEvent[]
+    }
     setEvents(evs)
     setLoading(false)
     setRefresh(false)
@@ -152,6 +161,9 @@ export default function MijnShiftsScherm() {
           <Text style={s.blockText}>{selected.briefing}</Text>
         </View>
       )}
+      <TouchableOpacity style={s.prikklokBtn} onPress={() => navigation.navigate('Prikklok')}>
+        <Text style={s.prikklokText}>⏱  Inkloppen</Text>
+      </TouchableOpacity>
       {selected.status !== 'afgewerkt' && selected.status !== 'geannuleerd' && (
         <TouchableOpacity style={s.terugtrekBtn} onPress={() => openTerugtrekking(selected)}>
           <Text style={s.terugtrekText}>Terugtrekken</Text>
@@ -327,7 +339,9 @@ const s = StyleSheet.create({
   block:               { backgroundColor: '#0d0d0d', borderRadius: 12, padding: 14, marginTop: 12 },
   blockLabel:          { fontSize: 10, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
   blockText:           { fontSize: 13, color: '#aaa', lineHeight: 20 },
-  terugtrekBtn:        { marginTop: 24, borderWidth: 1, borderColor: '#2e1010', borderRadius: 10, padding: 14, alignItems: 'center' },
+  prikklokBtn:         { marginTop: 24, backgroundColor: '#111', borderWidth: 1, borderColor: '#1e3a5f', borderRadius: 10, padding: 14, alignItems: 'center' },
+  prikklokText:        { fontSize: 13, color: '#60a5fa', fontWeight: '600' },
+  terugtrekBtn:        { marginTop: 10, borderWidth: 1, borderColor: '#2e1010', borderRadius: 10, padding: 14, alignItems: 'center' },
   terugtrekText:       { fontSize: 13, color: '#f87171', fontWeight: '600' },
   // Modal
   modal:               { flex: 1, backgroundColor: '#0a0a0a', padding: 24, paddingTop: 60 },

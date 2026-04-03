@@ -3,6 +3,7 @@ import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   ActivityIndicator, RefreshControl,
 } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
 import { supabase } from '../lib/supabase'
 import { fetchMessages } from '../lib/api'
 
@@ -17,14 +18,11 @@ interface PlannerEvent {
   status:         string
 }
 
-const NL_DAYS    = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag']
-const NL_MONTHS  = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december']
+const NL_DAYS   = ['Zondag','Maandag','Dinsdag','Woensdag','Donderdag','Vrijdag','Zaterdag']
+const NL_MONTHS = ['januari','februari','maart','april','mei','juni','juli','augustus','september','oktober','november','december']
 
-function today() { return new Date().toISOString().split('T')[0] }
-function tomorrow() {
-  const d = new Date(); d.setDate(d.getDate() + 1)
-  return d.toISOString().split('T')[0]
-}
+function todayISO()    { return new Date().toISOString().split('T')[0] }
+function tomorrowISO() { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().split('T')[0] }
 
 function greet(name: string): string {
   const h = new Date().getHours()
@@ -33,15 +31,14 @@ function greet(name: string): string {
   return `Goedenavond, ${name}`
 }
 
-function fmtTime(t: string | null) {
-  return t ? t.slice(0, 5) : ''
-}
+function fmtTime(t: string | null) { return t ? t.slice(0, 5) : '' }
 
 export default function HomeScherm() {
+  const navigation = useNavigation<any>()
+
   const [loading,      setLoading]      = useState(true)
   const [refreshing,   setRefreshing]   = useState(false)
   const [firstName,    setFirstName]    = useState('daar')
-  const [empId,        setEmpId]        = useState<string | null>(null)
   const [todayEvents,  setTodayEvents]  = useState<PlannerEvent[]>([])
   const [tomorrowEvts, setTomorrowEvts] = useState<PlannerEvent[]>([])
   const [unreadCount,  setUnreadCount]  = useState(0)
@@ -61,27 +58,38 @@ export default function HomeScherm() {
 
     if (!emp) { setLoading(false); setRefreshing(false); return }
 
-    setEmpId(emp.id)
-    const name = emp.full_name?.split(' ')[0] ?? 'daar'
-    setFirstName(name)
+    setFirstName(emp.full_name?.split(' ')[0] ?? 'daar')
 
-    const tod  = today()
-    const tom  = tomorrow()
+    const tod = todayISO()
+    const tom = tomorrowISO()
 
-    // Fetch today + tomorrow events
-    const { data: events } = await supabase
+    // Bug 2 fix: Supabase JS v2 cannot filter on a joined table's columns via
+    // .gte('planner_events.datum_start', ...). Instead: fetch the worker's
+    // event_ids first, then query planner_events with a date filter directly.
+    const { data: assignments } = await supabase
       .from('planner_event_workers')
-      .select('event:planner_events(id, titel, klant, datum_start, tijdstip_start, tijdstip_einde, locatie, status)')
+      .select('event_id')
       .eq('employee_id', emp.id)
-      .gte('planner_events.datum_start', tod)
-      .lte('planner_events.datum_start', tom)
-      .order('planner_events.datum_start', { ascending: true })
 
-    const all = (events ?? []).map((r: { event: PlannerEvent }) => r.event).filter(Boolean)
-    setTodayEvents(all.filter((e: PlannerEvent) => e.datum_start === tod))
-    setTomorrowEvts(all.filter((e: PlannerEvent) => e.datum_start === tom))
+    const eventIds = (assignments ?? []).map((r: { event_id: string }) => r.event_id)
 
-    // Messages for badge counts
+    if (eventIds.length > 0) {
+      const { data: events } = await supabase
+        .from('planner_events')
+        .select('id, titel, klant, datum_start, tijdstip_start, tijdstip_einde, locatie, status')
+        .in('id', eventIds)
+        .gte('datum_start', tod)
+        .lte('datum_start', tom)
+        .order('datum_start', { ascending: true })
+
+      const all = (events ?? []) as PlannerEvent[]
+      setTodayEvents(all.filter(e => e.datum_start === tod))
+      setTomorrowEvts(all.filter(e => e.datum_start === tom))
+    } else {
+      setTodayEvents([])
+      setTomorrowEvts([])
+    }
+
     try {
       const msgs = await fetchMessages(emp.id)
       setUnreadCount(msgs.filter(m => !m.gelezen).length)
@@ -94,12 +102,10 @@ export default function HomeScherm() {
 
   useEffect(() => { load() }, [load])
 
-  const now = new Date()
+  const now       = new Date()
   const dateLabel = `${NL_DAYS[now.getDay()]} ${now.getDate()} ${NL_MONTHS[now.getMonth()]} ${now.getFullYear()}`
 
-  if (loading) {
-    return <View style={s.center}><ActivityIndicator color="#fff" /></View>
-  }
+  if (loading) return <View style={s.center}><ActivityIndicator color="#fff" /></View>
 
   return (
     <ScrollView
@@ -107,16 +113,13 @@ export default function HomeScherm() {
       contentContainerStyle={s.pad}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor="#fff" />}
     >
-      {/* Begroeting */}
       <Text style={s.greeting}>{greet(firstName)}</Text>
       <Text style={s.date}>{dateLabel}</Text>
 
       {/* Vandaag */}
       <Text style={s.sectionTitle}>Vandaag</Text>
       {todayEvents.length === 0 ? (
-        <View style={s.emptyCard}>
-          <Text style={s.emptyText}>Geen shift vandaag</Text>
-        </View>
+        <View style={s.emptyCard}><Text style={s.emptyText}>Geen shift vandaag</Text></View>
       ) : todayEvents.map(ev => (
         <View key={ev.id} style={s.shiftCard}>
           <View style={s.shiftRow}>
@@ -135,9 +138,7 @@ export default function HomeScherm() {
       {/* Morgen */}
       <Text style={s.sectionTitle}>Morgen</Text>
       {tomorrowEvts.length === 0 ? (
-        <View style={s.emptyCard}>
-          <Text style={s.emptyText}>Geen shift morgen</Text>
-        </View>
+        <View style={s.emptyCard}><Text style={s.emptyText}>Geen shift morgen</Text></View>
       ) : tomorrowEvts.map(ev => (
         <View key={ev.id} style={[s.shiftCard, s.shiftCardCompact]}>
           <Text style={s.shiftClient}>{ev.klant ?? ev.titel}</Text>
@@ -166,20 +167,20 @@ export default function HomeScherm() {
         </>
       )}
 
-      {/* Snelle acties */}
+      {/* Snelle acties — Bug 1 fix: knoppen navigeren nu naar echte schermen */}
       <Text style={s.sectionTitle}>Snelle acties</Text>
       <View style={s.quickRow}>
-        <TouchableOpacity style={s.quickBtn}>
-          <Text style={s.quickIcon}>📆</Text>
-          <Text style={s.quickLabel}>Beschikbaarheid</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.quickBtn}>
-          <Text style={s.quickIcon}>📅</Text>
-          <Text style={s.quickLabel}>Mijn shifts</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={s.quickBtn}>
+        <TouchableOpacity style={s.quickBtn} onPress={() => navigation.navigate('Prikklok')}>
           <Text style={s.quickIcon}>⏱</Text>
           <Text style={s.quickLabel}>Prikklok</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.quickBtn} onPress={() => navigation.navigate('Contracten')}>
+          <Text style={s.quickIcon}>📄</Text>
+          <Text style={s.quickLabel}>Contracten</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.quickBtn} onPress={() => navigation.navigate('Autocheck')}>
+          <Text style={s.quickIcon}>🚗</Text>
+          <Text style={s.quickLabel}>Autocheck</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
