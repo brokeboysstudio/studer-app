@@ -238,7 +238,7 @@ export default function AutocheckScherm() {
         schade:       reviewSchade,
         omschrijving: reviewDesc,
       },
-    })}  )
+    }))
     setActiveZone(null)
     setCapturedUri(null)
     setCapturedB64(null)
