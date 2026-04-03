@@ -1,5 +1,40 @@
 const BASE = 'https://studer-os.vercel.app'
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+export interface WorkerMessage {
+  id:            string
+  type:          'info' | 'shift' | 'document' | 'actie' | string
+  titel:         string
+  inhoud:        string
+  gelezen:       boolean
+  actie_vereist: boolean
+  actie_gedaan:  boolean
+  aangemaakt_op: string
+}
+
+// ── Messages ──────────────────────────────────────────────────────────────────
+
+export async function fetchMessages(employeeId: string): Promise<WorkerMessage[]> {
+  const res = await fetch(`${BASE}/api/workers/${employeeId}/messages`)
+  if (!res.ok) throw new Error('Berichten ophalen mislukt')
+  return res.json()
+}
+
+export async function markRead(employeeId: string, messageId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/workers/${employeeId}/messages/${messageId}/read`, {
+    method: 'PATCH',
+  })
+  if (!res.ok) throw new Error('Markeren als gelezen mislukt')
+}
+
+export async function confirmShift(employeeId: string, messageId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/workers/${employeeId}/messages/${messageId}/actie`, {
+    method: 'PATCH',
+  })
+  if (!res.ok) throw new Error('Bevestiging mislukt')
+}
+
 export async function inkloppen(employee_id: string, event_id: string | null, gps_lat?: number, gps_lon?: number) {
   const res = await fetch(`${BASE}/api/tijdsregistratie/inkloppen`, {
     method: 'POST',

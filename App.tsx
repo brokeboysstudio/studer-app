@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { StatusBar } from 'expo-status-bar'
 import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { View, Text, ActivityIndicator } from 'react-native'
 import { supabase } from './src/lib/supabase'
+import { fetchMessages } from './src/lib/api'
 
 // Registration flow (public)
 import WelkomScherm      from './src/screens/WelkomScherm'
@@ -18,6 +19,7 @@ import ShiftsScherm          from './src/screens/ShiftsScherm'
 import BeschikbaarheidScherm from './src/screens/BeschikbaarheidScherm'
 import PrikklokScherm        from './src/screens/PrikklokScherm'
 import ContractenScherm      from './src/screens/ContractenScherm'
+import InboxScherm           from './src/screens/InboxScherm'
 
 import { ApplicationData } from './src/lib/supabase'
 
@@ -32,16 +34,26 @@ export type RootStackParamList = {
 
 // ── Tab icon component ────────────────────────────────────────────────────────
 
-function TabIcon({ name, color }: { name: string; color: string }) {
+function TabIcon({ name, color, badge }: { name: string; color: string; badge?: number }) {
   const icons: Record<string, string> = {
     Shifts:         '📅',
     Beschikbaarheid:'📆',
     Prikklok:       '⏱',
     Contracten:     '📄',
+    Inbox:          '✉️',
   }
   return (
     <View style={{ alignItems: 'center' }}>
       <Text style={{ fontSize: 18, opacity: color === '#fff' ? 1 : 0.4 }}>{icons[name] ?? '•'}</Text>
+      {badge && badge > 0 ? (
+        <View style={{
+          position: 'absolute', top: -4, right: -10,
+          backgroundColor: '#3b82f6', borderRadius: 8,
+          minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3,
+        }}>
+          <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff' }}>{badge > 99 ? '99+' : badge}</Text>
+        </View>
+      ) : null}
     </View>
   )
 }
@@ -51,6 +63,31 @@ function TabIcon({ name, color }: { name: string; color: string }) {
 const Tab = createBottomTabNavigator()
 
 function WorkerTabs() {
+  const [unread, setUnread] = useState(0)
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  async function pollUnread() {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user?.phone) return
+    const { data: emp } = await supabase
+      .from('employees')
+      .select('id')
+      .ilike('phone', `%${user.phone.replace(/\D/g, '').slice(-9)}%`)
+      .limit(1)
+      .single()
+    if (!emp) return
+    try {
+      const msgs = await fetchMessages(emp.id)
+      setUnread(msgs.filter((m: { gelezen: boolean }) => !m.gelezen).length)
+    } catch { /* ignore */ }
+  }
+
+  useEffect(() => {
+    pollUnread()
+    intervalRef.current = setInterval(pollUnread, 5 * 60 * 1000)
+    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+  }, [])
+
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -66,13 +103,20 @@ function WorkerTabs() {
         tabBarActiveTintColor:   '#fff',
         tabBarInactiveTintColor: '#444',
         tabBarLabelStyle: { fontSize: 10, marginTop: 2 },
-        tabBarIcon: ({ color }) => <TabIcon name={route.name} color={color} />,
+        tabBarIcon: ({ color }) => (
+          <TabIcon
+            name={route.name}
+            color={color}
+            badge={route.name === 'Inbox' ? unread : undefined}
+          />
+        ),
       })}
     >
       <Tab.Screen name="Shifts"          component={ShiftsScherm} />
       <Tab.Screen name="Beschikbaarheid" component={BeschikbaarheidScherm} />
       <Tab.Screen name="Prikklok"        component={PrikklokScherm} />
       <Tab.Screen name="Contracten"      component={ContractenScherm} />
+      <Tab.Screen name="Inbox"           component={InboxScherm} />
     </Tab.Navigator>
   )
 }
