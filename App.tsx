@@ -59,6 +59,7 @@ async function registerForPushNotifications(): Promise<string | null> {
 
 export type RootStackParamList = {
   Welkom:      undefined
+  Login:       undefined
   StapEen:     { pushToken: string | null; track: 'direct' | 'select' }
   StapTwee:    { pushToken: string | null; track: 'direct' | 'select'; data: Partial<ApplicationData> }
   Bevestiging: { pushToken: string | null; track: 'direct' | 'select'; data: Partial<ApplicationData>; cvUri?: string | null; cvNaam?: string | null; cvMime?: string | null }
@@ -213,6 +214,7 @@ function RegistrationStack() {
       }}
     >
       <RegStack.Screen name="Welkom"      component={WelkomScherm} />
+      <RegStack.Screen name="Login"       component={LoginScherm} />
       <RegStack.Screen name="StapEen"     component={StapEenScherm} />
       <RegStack.Screen name="StapTwee"    component={StapTweeScherm} />
       <RegStack.Screen name="Bevestiging" component={BevestigingScherm} />
@@ -222,7 +224,7 @@ function RegistrationStack() {
 
 // ── Root ──────────────────────────────────────────────────────────────────────
 
-type AppMode = 'loading' | 'registration' | 'login' | 'worker'
+type AppMode = 'loading' | 'registration' | 'worker'
 
 export default function App() {
   const [mode,        setMode]        = useState<AppMode>('loading')
@@ -238,10 +240,8 @@ export default function App() {
       if (s) {
         initWorker()
       } else if (event === 'SIGNED_OUT') {
-        // Explicit logout → toon LoginScherm zodat bestaande workers kunnen inloggen
-        setMode('login')
+        setMode('registration')
       }
-      // INITIAL_SESSION zonder session → al afgehandeld door getSession hierboven
     })
 
     return () => subscription.unsubscribe()
@@ -281,8 +281,6 @@ export default function App() {
       <StatusBar style="light" />
       {mode === 'worker' ? (
         <WorkerStackNav isChauffeur={isChauffeur} />
-      ) : mode === 'login' ? (
-        <LoginScherm onLogin={() => initWorker()} />
       ) : (
         <RegistrationStack />
       )}
