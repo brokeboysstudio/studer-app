@@ -56,6 +56,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 export interface ApplicationData {
   voornaam: string
   achternaam: string
+  email?: string
   telefoon: string
   geboortedatum?: string
   segment?: 'student' | 'flexi' | 'other'
@@ -67,10 +68,34 @@ export interface ApplicationData {
 }
 
 export async function submitApplication(data: ApplicationData): Promise<{ id: string }> {
-  const { data: row, error } = await supabase.from('applications').insert(data).select('id').single()
-  if (error) {
-    console.error('[Supabase] submitApplication error:', JSON.stringify(error, null, 2))
-    throw error
+  const res = await fetch('https://studer-os.vercel.app/api/jobs/registreer', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      voornaam:       data.voornaam,
+      achternaam:     data.achternaam,
+      email:          data.email ?? '',
+      telefoon:       data.telefoon,
+      geboortedatum:  data.geboortedatum ?? '',
+      stad:           data.stad ?? '',
+      track:          data.track ?? 'direct',
+      is_student:     data.segment === 'student',
+      segment:        data.segment ?? 'other',
+      school:         '',
+      studierichting: '',
+      studiejaar:     null,
+      functies:       [],
+      rijbewijs:      false,
+      eigen_wagen:    false,
+      hoe_bij_studer: data.hoe_bij_studer ?? '',
+      via_wie:        data.via_wie ?? null,
+      push_token:     data.push_token ?? null,
+    }),
+  })
+  const json = await res.json()
+  if (!res.ok) {
+    console.error('[submitApplication] API error:', JSON.stringify(json))
+    throw new Error(json.error ?? 'Registratie mislukt')
   }
-  return row as { id: string }
+  return { id: json.employee_id }
 }
