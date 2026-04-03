@@ -249,21 +249,31 @@ export default function App() {
 
   async function initWorker() {
     const { data: { user } } = await supabase.auth.getUser()
+    let empId: string | null = null
+
     if (user?.phone) {
       const { data: emp } = await supabase
         .from('employees').select('id')
         .ilike('phone', `%${user.phone.replace(/\D/g, '').slice(-9)}%`)
         .limit(1).single()
-      if (emp) {
-        try {
-          const { isChauffeur: isC } = await fetchRole(emp.id)
-          setIsChauffeur(isC)
-        } catch { /* default worker */ }
-        try {
-          const token = await registerForPushNotifications()
-          if (token) await savePushToken(emp.id, token)
-        } catch { /* non-critical */ }
-      }
+      empId = emp?.id ?? null
+    } else if (user?.email) {
+      const { data: emp } = await supabase
+        .from('employees').select('id')
+        .eq('email', user.email)
+        .limit(1).single()
+      empId = emp?.id ?? null
+    }
+
+    if (empId) {
+      try {
+        const { isChauffeur: isC } = await fetchRole(empId)
+        setIsChauffeur(isC)
+      } catch { /* default worker */ }
+      try {
+        const token = await registerForPushNotifications()
+        if (token) await savePushToken(empId, token)
+      } catch { /* non-critical */ }
     }
     setMode('worker')
   }
