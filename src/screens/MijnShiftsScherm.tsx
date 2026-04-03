@@ -5,6 +5,7 @@ import {
   TextInput, Platform,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import { indienTerugtrekking } from '../lib/api'
 
@@ -162,7 +163,8 @@ export default function MijnShiftsScherm() {
         </View>
       )}
       <TouchableOpacity style={s.prikklokBtn} onPress={() => navigation.navigate('Prikklok')}>
-        <Text style={s.prikklokText}>⏱  Inkloppen</Text>
+        <Ionicons name="time-outline" size={16} color="#60a5fa" style={{ marginRight: 6 }} />
+        <Text style={s.prikklokText}>Inkloppen</Text>
       </TouchableOpacity>
       {selected.status !== 'afgewerkt' && selected.status !== 'geannuleerd' && (
         <TouchableOpacity style={s.terugtrekBtn} onPress={() => openTerugtrekking(selected)}>
@@ -303,7 +305,7 @@ export default function MijnShiftsScherm() {
       <Modal visible={ttStep === 'done'} animationType="fade" transparent>
         <View style={s.doneOverlay}>
           <View style={s.doneCard}>
-            <Text style={s.doneIcon}>✅</Text>
+            <Ionicons name="checkmark-circle-outline" size={48} color="#4ade80" />
             <Text style={s.doneTitle}>Aanvraag ingediend</Text>
             <Text style={s.doneSub}>Je planner wordt verwittigd en verwerkt je aanvraag zo snel mogelijk.</Text>
             <TouchableOpacity style={s.modalBtnPrimary} onPress={() => { setTtEvent(null); setTtStep('warning'); load() }}>
@@ -339,7 +341,7 @@ const s = StyleSheet.create({
   block:               { backgroundColor: '#0d0d0d', borderRadius: 12, padding: 14, marginTop: 12 },
   blockLabel:          { fontSize: 10, color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 },
   blockText:           { fontSize: 13, color: '#aaa', lineHeight: 20 },
-  prikklokBtn:         { marginTop: 24, backgroundColor: '#111', borderWidth: 1, borderColor: '#1e3a5f', borderRadius: 10, padding: 14, alignItems: 'center' },
+  prikklokBtn:         { marginTop: 24, backgroundColor: '#111', borderWidth: 1, borderColor: '#1e3a5f', borderRadius: 10, padding: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' },
   prikklokText:        { fontSize: 13, color: '#60a5fa', fontWeight: '600' },
   terugtrekBtn:        { marginTop: 10, borderWidth: 1, borderColor: '#2e1010', borderRadius: 10, padding: 14, alignItems: 'center' },
   terugtrekText:       { fontSize: 13, color: '#f87171', fontWeight: '600' },
@@ -367,7 +369,7 @@ const s = StyleSheet.create({
   // Done
   doneOverlay:         { flex: 1, backgroundColor: '#000000cc', alignItems: 'center', justifyContent: 'center' },
   doneCard:            { backgroundColor: '#111', borderRadius: 20, padding: 32, margin: 24, alignItems: 'center', gap: 12, borderWidth: 1, borderColor: '#1e1e1e' },
-  doneIcon:            { fontSize: 48 },
+  doneIcon:            { fontSize: 48 }, // replaced by Ionicons
   doneTitle:           { fontSize: 18, fontWeight: '700', color: '#fff' },
   doneSub:             { fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 20, marginBottom: 8 },
 })

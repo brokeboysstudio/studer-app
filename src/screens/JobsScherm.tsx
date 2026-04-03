@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
   Animated, PanResponder, Dimensions, Linking,
 } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import { fetchJobs, postInteresse, JobEvent } from '../lib/api'
 
@@ -105,7 +106,7 @@ export default function JobsScherm() {
 
       {!job ? (
         <View style={s.emptyWrap}>
-          <Text style={s.emptyIcon}>🎉</Text>
+          <Ionicons name="checkmark-done-outline" size={48} color="#4ade80" />
           <Text style={s.emptyTitle}>Je bent bijgewerkt!</Text>
           <Text style={s.emptyText}>Geen nieuwe jobs op dit moment.{'\n'}Check later opnieuw.</Text>
         </View>
@@ -170,7 +171,7 @@ export default function JobsScherm() {
                 style={s.mapsBtn}
                 onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(job.locatie!)}`)}
               >
-                <Text style={s.mapsBtnText}>📍 Bekijk op kaart</Text>
+                <Text style={s.mapsBtnText}>Bekijk op kaart</Text>
               </TouchableOpacity>
             )}
           </Animated.View>
@@ -182,7 +183,7 @@ export default function JobsScherm() {
               onPress={swipeLeft}
               disabled={deciding}
             >
-              <Text style={s.btnIcon}>❌</Text>
+              <Ionicons name="close-outline" size={24} color="#f87171" />
               <Text style={[s.btnLabel, { color: '#f87171' }]}>Niet interessant</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -190,7 +191,7 @@ export default function JobsScherm() {
               onPress={swipeRight}
               disabled={deciding}
             >
-              <Text style={s.btnIcon}>✅</Text>
+              <Ionicons name="checkmark-outline" size={24} color="#4ade80" />
               <Text style={[s.btnLabel, { color: '#4ade80' }]}>Ik wil dit!</Text>
             </TouchableOpacity>
           </View>
@@ -208,7 +209,7 @@ const s = StyleSheet.create({
   pageTitle:   { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 2 },
   sub:         { fontSize: 12, color: '#444', marginBottom: 20 },
   emptyWrap:   { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
-  emptyIcon:   { fontSize: 48 },
+  emptyIcon:   { marginBottom: 8 },
   emptyTitle:  { fontSize: 18, fontWeight: '700', color: '#fff' },
   emptyText:   { fontSize: 13, color: '#555', textAlign: 'center', lineHeight: 20 },
   cardArea:    { flex: 1, alignItems: 'center' },
@@ -250,7 +251,7 @@ const s = StyleSheet.create({
   btnNope:     { borderColor: '#2e1010' },
   btnLike:     { borderColor: '#0a2a1a' },
   btnActive:   { opacity: 0.6 },
-  btnIcon:     { fontSize: 18 },
+  btnIcon:     { marginBottom: 2 },
   btnLabel:    { fontSize: 13, fontWeight: '600' },
   counter:     { position: 'absolute', bottom: 60, fontSize: 11, color: '#333' },
 })

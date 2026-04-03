@@ -4,6 +4,7 @@ import {
   ActivityIndicator, RefreshControl,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import { fetchMessages } from '../lib/api'
 
@@ -171,15 +172,15 @@ export default function HomeScherm() {
       <Text style={s.sectionTitle}>Snelle acties</Text>
       <View style={s.quickRow}>
         <TouchableOpacity style={s.quickBtn} onPress={() => navigation.navigate('Prikklok')}>
-          <Text style={s.quickIcon}>⏱</Text>
+          <Ionicons name="time-outline" size={24} color="#888" />
           <Text style={s.quickLabel}>Prikklok</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.quickBtn} onPress={() => navigation.navigate('Contracten')}>
-          <Text style={s.quickIcon}>📄</Text>
+          <Ionicons name="document-text-outline" size={24} color="#888" />
           <Text style={s.quickLabel}>Contracten</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.quickBtn} onPress={() => navigation.navigate('Autocheck')}>
-          <Text style={s.quickIcon}>🚗</Text>
+          <Ionicons name="car-outline" size={24} color="#888" />
           <Text style={s.quickLabel}>Autocheck</Text>
         </TouchableOpacity>
       </View>
@@ -210,6 +211,6 @@ const s = StyleSheet.create({
   actieText:        { fontSize: 13, color: '#ccc' },
   quickRow:         { flexDirection: 'row', gap: 10 },
   quickBtn:         { flex: 1, backgroundColor: '#111', borderWidth: 1, borderColor: '#1e1e1e', borderRadius: 12, padding: 14, alignItems: 'center', gap: 6 },
-  quickIcon:        { fontSize: 22 },
+  quickIcon:        { fontSize: 22 }, // kept for reference
   quickLabel:       { fontSize: 10, color: '#888', textAlign: 'center' },
 })

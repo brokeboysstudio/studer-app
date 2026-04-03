@@ -5,6 +5,7 @@ import {
 } from 'react-native'
 import { CameraView, useCameraPermissions } from 'expo-camera'
 import Svg, { Rect, Text as SvgText, G } from 'react-native-svg'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import {
   fetchWagenSchade,
@@ -399,7 +400,7 @@ export default function AutocheckScherm() {
               onPress={() => setCheckType(t)}
             >
               <Text style={[s.segmentText, checkType === t && s.segmentTextActive]}>
-                {t === 'vertrek' ? '🚗 Vertrek' : '🏁 Aankomst'}
+                {t === 'vertrek' ? 'Vertrek' : 'Aankomst'}
               </Text>
             </TouchableOpacity>
           ))}
@@ -553,7 +554,10 @@ export default function AutocheckScherm() {
               {vuilFotoUri ? (
                 <Image source={{ uri: vuilFotoUri }} style={s.reviewPhoto} resizeMode="cover" />
               ) : (
-                <Text style={s.photoBtnText}>📷 Foto toevoegen</Text>
+                <>
+                  <Ionicons name="camera-outline" size={20} color="#888" style={{ marginBottom: 4 }} />
+                  <Text style={s.photoBtnText}>Foto toevoegen</Text>
+                </>
               )}
             </TouchableOpacity>
           </>

@@ -5,6 +5,7 @@ import {
 } from 'react-native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../../App'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 
 type Props = {
@@ -143,7 +144,7 @@ export default function LoginScherm({ navigation, onLogin }: Props) {
                 autoComplete="password"
               />
               <TouchableOpacity style={s.eyeBtn} onPress={() => setShowPass(p => !p)}>
-                <Text style={s.eyeIcon}>{showPass ? '🙈' : '👁'}</Text>
+                <Ionicons name={showPass ? 'eye-off-outline' : 'eye-outline'} size={18} color="#555" />
               </TouchableOpacity>
             </View>
 
@@ -255,7 +256,6 @@ const s = StyleSheet.create({
   passwordWrap: { width: '100%', flexDirection: 'row', alignItems: 'center', backgroundColor: '#111', borderWidth: 1, borderColor: '#222', borderRadius: 12, marginBottom: 12 },
   passwordInput:{ flex: 1, paddingHorizontal: 16, paddingVertical: 14, color: '#fff', fontSize: 16 },
   eyeBtn:       { paddingHorizontal: 14 },
-  eyeIcon:      { fontSize: 16 },
   btn:          { width: '100%', backgroundColor: '#fff', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
   btnDisabled:  { opacity: 0.3 },
   btnText:      { color: '#000', fontWeight: '700', fontSize: 15 },

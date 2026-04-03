@@ -4,6 +4,7 @@ import {
   ActivityIndicator, RefreshControl, Linking,
 } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
 import { fetchWagenToewijzing, WagenToewijzing } from '../lib/api'
 
@@ -58,7 +59,7 @@ export default function WagenScherm() {
 
       {!current ? (
         <View style={s.emptyCard}>
-          <Text style={s.emptyIcon}>🚗</Text>
+          <Ionicons name="car-outline" size={48} color="#333" />
           <Text style={s.emptyTitle}>Geen toewijzing</Text>
           <Text style={s.emptyText}>Er is momenteel geen wagen aan jou toegewezen.</Text>
         </View>
@@ -118,7 +119,7 @@ export default function WagenScherm() {
                 style={[s.actionBtn, s.actionBtnPrimary]}
                 onPress={() => Linking.openURL(`https://maps.google.com/?q=${encodeURIComponent(current.project!.locatie!)}`)}
               >
-                <Text style={s.actionBtnIcon}>🗺</Text>
+                <Ionicons name="navigate-outline" size={18} color="#60a5fa" />
                 <Text style={s.actionBtnText}>Navigeren</Text>
               </TouchableOpacity>
             )}
@@ -126,7 +127,7 @@ export default function WagenScherm() {
               style={[s.actionBtn, s.actionBtnPrimary]}
               onPress={() => navigation.navigate('Autocheck')}
             >
-              <Text style={s.actionBtnIcon}>🚗</Text>
+              <Ionicons name="car-outline" size={18} color="#60a5fa" />
               <Text style={s.actionBtnText}>Autocheck</Text>
             </TouchableOpacity>
           </View>
@@ -161,7 +162,7 @@ const s = StyleSheet.create({
   pad:                { padding: 20, paddingTop: 64, paddingBottom: 32 },
   pageTitle:          { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 20 },
   emptyCard:          { alignItems: 'center', gap: 10, paddingVertical: 48 },
-  emptyIcon:          { fontSize: 48 },
+  emptyIcon:          { marginBottom: 8 },
   emptyTitle:         { fontSize: 16, fontWeight: '700', color: '#fff' },
   emptyText:          { fontSize: 13, color: '#444', textAlign: 'center' },
   wagenCard:          { backgroundColor: '#111', borderRadius: 16, padding: 20, marginBottom: 12, borderWidth: 1, borderColor: '#1e1e1e' },
@@ -176,7 +177,7 @@ const s = StyleSheet.create({
   actionRow:          { flexDirection: 'row', gap: 10, marginBottom: 24 },
   actionBtn:          { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, padding: 14, borderWidth: 1 },
   actionBtnPrimary:   { backgroundColor: '#111', borderColor: '#1e3a5f' },
-  actionBtnIcon:      { fontSize: 18 },
+  actionBtnIcon:      { marginRight: 4 },
   actionBtnText:      { fontSize: 13, color: '#60a5fa', fontWeight: '600' },
   sectionTitle:       { fontSize: 11, fontWeight: '700', color: '#444', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
   upcomingCard:       { backgroundColor: '#0d0d0d', borderRadius: 12, padding: 14, marginBottom: 8, flexDirection: 'row', gap: 14, borderWidth: 1, borderColor: '#1a1a1a' },

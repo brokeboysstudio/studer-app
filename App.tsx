@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs'
 import { View, Text, ActivityIndicator, Platform } from 'react-native'
+import { Ionicons } from '@expo/vector-icons'
 import * as Notifications from 'expo-notifications'
 import { supabase } from './src/lib/supabase'
 import { fetchMessages, fetchRole, savePushToken } from './src/lib/api'
@@ -67,10 +68,10 @@ export type RootStackParamList = {
 
 // ── Tab icon ──────────────────────────────────────────────────────────────────
 
-function TabIcon({ icon, color, badge }: { icon: string; color: string; badge?: number }) {
+function TabIcon({ name, color, badge }: { name: React.ComponentProps<typeof Ionicons>['name']; color: string; badge?: number }) {
   return (
     <View style={{ alignItems: 'center' }}>
-      <Text style={{ fontSize: 20, opacity: color === '#fff' ? 1 : 0.35 }}>{icon}</Text>
+      <Ionicons name={name} size={22} color={color} />
       {badge && badge > 0 ? (
         <View style={{
           position: 'absolute', top: -4, right: -10,
@@ -132,36 +133,36 @@ function WorkerTabs({ isChauffeur }: { isChauffeur: boolean }) {
       <Tab.Screen
         name="Home"
         component={HomeScherm}
-        options={{ tabBarIcon: ({ color }) => <TabIcon icon="🏠" color={color} />, tabBarLabel: 'Home' }}
+        options={{ tabBarIcon: ({ color }) => <TabIcon name="home-outline" color={color} />, tabBarLabel: 'Home' }}
       />
       <Tab.Screen
         name="Jobs"
         component={JobsScherm}
-        options={{ tabBarIcon: ({ color }) => <TabIcon icon="✨" color={color} />, tabBarLabel: 'Jobs' }}
+        options={{ tabBarIcon: ({ color }) => <TabIcon name="briefcase-outline" color={color} />, tabBarLabel: 'Jobs' }}
       />
       <Tab.Screen
         name="MijnShifts"
         component={MijnShiftsScherm}
-        options={{ tabBarIcon: ({ color }) => <TabIcon icon="📅" color={color} />, tabBarLabel: 'Shifts' }}
+        options={{ tabBarIcon: ({ color }) => <TabIcon name="calendar-outline" color={color} />, tabBarLabel: 'Shifts' }}
       />
       <Tab.Screen
         name="Inbox"
         component={InboxScherm}
         options={{
-          tabBarIcon: ({ color }) => <TabIcon icon="✉️" color={color} badge={unread} />,
+          tabBarIcon: ({ color }) => <TabIcon name="mail-outline" color={color} badge={unread} />,
           tabBarLabel: 'Inbox',
         }}
       />
       <Tab.Screen
         name="Profiel"
         component={ProfielScherm}
-        options={{ tabBarIcon: ({ color }) => <TabIcon icon="👤" color={color} />, tabBarLabel: 'Profiel' }}
+        options={{ tabBarIcon: ({ color }) => <TabIcon name="person-outline" color={color} />, tabBarLabel: 'Profiel' }}
       />
       {isChauffeur && (
         <Tab.Screen
           name="Wagen"
           component={WagenScherm}
-          options={{ tabBarIcon: ({ color }) => <TabIcon icon="🚗" color={color} />, tabBarLabel: 'Wagen' }}
+          options={{ tabBarIcon: ({ color }) => <TabIcon name="car-outline" color={color} />, tabBarLabel: 'Wagen' }}
         />
       )}
     </Tab.Navigator>
