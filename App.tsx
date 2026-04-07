@@ -7,7 +7,7 @@ import { View, Text, ActivityIndicator, Platform } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import * as Notifications from 'expo-notifications'
 import { supabase } from './src/lib/supabase'
-import { fetchMessages, fetchRole, savePushToken } from './src/lib/api'
+import { fetchUnreadChatCount, fetchRole, savePushToken } from './src/lib/api'
 
 // Registration flow (public)
 import WelkomScherm      from './src/screens/WelkomScherm'
@@ -26,6 +26,7 @@ import WagenScherm       from './src/screens/WagenScherm'
 import PrikklokScherm    from './src/screens/PrikklokScherm'
 import ContractenScherm  from './src/screens/ContractenScherm'
 import AutocheckScherm   from './src/screens/AutocheckScherm'
+import ChatScherm        from './src/screens/ChatScherm'
 
 import { ApplicationData } from './src/lib/supabase'
 
@@ -95,15 +96,24 @@ function WorkerTabs({ isChauffeur }: { isChauffeur: boolean }) {
 
   async function pollUnread() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.phone) return
-    const { data: emp } = await supabase
-      .from('employees').select('id')
-      .ilike('phone', `%${user.phone.replace(/\D/g, '').slice(-9)}%`)
-      .limit(1).single()
-    if (!emp) return
+    if (!user) return
+    let empId: string | null = null
+    if (user.phone) {
+      const { data: emp } = await supabase
+        .from('employees').select('id')
+        .ilike('phone', `%${user.phone.replace(/\D/g, '').slice(-9)}%`)
+        .limit(1).single()
+      empId = emp?.id ?? null
+    }
+    if (!empId && user.email) {
+      const { data: emp } = await supabase
+        .from('employees').select('id').eq('email', user.email).limit(1).single()
+      empId = emp?.id ?? null
+    }
+    if (!empId) return
     try {
-      const msgs = await fetchMessages(emp.id)
-      setUnread(msgs.filter((m: { gelezen: boolean }) => !m.gelezen).length)
+      const count = await fetchUnreadChatCount(empId)
+      setUnread(count)
     } catch { /* ignore */ }
   }
 
@@ -194,6 +204,11 @@ function WorkerStackNav({ isChauffeur }: { isChauffeur: boolean }) {
       <WorkerStack.Screen
         name="Autocheck"
         component={AutocheckScherm}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <WorkerStack.Screen
+        name="Chat"
+        component={ChatScherm}
         options={{ animation: 'slide_from_right' }}
       />
     </WorkerStack.Navigator>

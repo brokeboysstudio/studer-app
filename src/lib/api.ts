@@ -13,6 +13,54 @@ export interface WorkerMessage {
   aangemaakt_op: string
 }
 
+export interface JobEvent {
+  id:             string
+  titel:          string
+  klant:          string | null
+  datum_start:    string
+  datum_einde:    string | null
+  tijdstip_start: string | null
+  tijdstip_einde: string | null
+  locatie:        string | null
+  dresscode:      string | null
+  briefing:       string | null
+  kledij:         string | null
+  foto_url:       string | null
+  workers_nodig:  number | null
+  vrije_plaatsen: number | null
+  bezet:          number | null
+  notities:       string | null
+}
+
+export interface ChatThread {
+  id:                 string
+  title:              string | null
+  type:               string
+  gearchiveerd:       boolean
+  laatste_bericht_at: string
+  ongelezen_count:    number
+  laatste_bericht: {
+    inhoud:       string
+    afzender:     'studer' | 'worker'
+    afzender_naam: string | null
+    type:         string
+    created_at:   string
+  } | null
+}
+
+export interface ChatBericht {
+  id:              string
+  thread_id:       string
+  afzender:        'studer' | 'worker'
+  afzender_naam:   string | null
+  inhoud:          string
+  type:            string
+  actie_type:      string | null
+  actie_voltooid:  boolean
+  gelezen_at:      string | null
+  created_at:      string
+}
+
 export interface WagenInfo {
   id:          string
   nummerplaat: string
@@ -28,19 +76,6 @@ export interface SchadeHistorie {
   omschrijving: string | null
   nieuw:        boolean
   created_at:   string
-}
-
-export interface JobEvent {
-  id:             string
-  titel:          string
-  klant:          string | null
-  datum_start:    string
-  tijdstip_start: string | null
-  tijdstip_einde: string | null
-  locatie:        string | null
-  dresscode:      string | null
-  briefing:       string | null
-  functie:        string | null
 }
 
 export interface WagenToewijzing {
@@ -116,6 +151,47 @@ export async function markRead(employeeId: string, messageId: string): Promise<v
 export async function confirmShift(employeeId: string, messageId: string): Promise<void> {
   const res = await fetch(`${BASE}/api/workers/${employeeId}/messages/${messageId}/actie`, { method: 'PATCH' })
   if (!res.ok) throw new Error('Bevestiging mislukt')
+}
+
+// ── Chat ──────────────────────────────────────────────────────────────────────
+
+export async function fetchThreads(employeeId: string, gearchiveerd = false): Promise<ChatThread[]> {
+  const res = await fetch(`${BASE}/api/workers/${employeeId}/chat?gearchiveerd=${gearchiveerd}`)
+  if (!res.ok) throw new Error('Threads ophalen mislukt')
+  return res.json()
+}
+
+export async function fetchThread(employeeId: string, threadId: string): Promise<{ thread: ChatThread; berichten: ChatBericht[] }> {
+  const res = await fetch(`${BASE}/api/workers/${employeeId}/chat/${threadId}`)
+  if (!res.ok) throw new Error('Thread ophalen mislukt')
+  return res.json()
+}
+
+export async function sendBericht(employeeId: string, threadId: string, inhoud: string): Promise<ChatBericht> {
+  const res = await fetch(`${BASE}/api/workers/${employeeId}/chat/${threadId}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ inhoud }),
+  })
+  if (!res.ok) throw new Error('Versturen mislukt')
+  const data = await res.json()
+  return data.bericht
+}
+
+export async function archiveerThread(employeeId: string, threadId: string): Promise<boolean> {
+  const res = await fetch(`${BASE}/api/workers/${employeeId}/chat/${threadId}/archiveer`, { method: 'PATCH' })
+  if (!res.ok) throw new Error('Archiveren mislukt')
+  const data = await res.json()
+  return data.gearchiveerd
+}
+
+export async function fetchUnreadChatCount(employeeId: string): Promise<number> {
+  try {
+    const threads = await fetchThreads(employeeId, false)
+    return threads.reduce((sum, t) => sum + (t.ongelezen_count ?? 0), 0)
+  } catch {
+    return 0
+  }
 }
 
 // ── Time ──────────────────────────────────────────────────────────────────────

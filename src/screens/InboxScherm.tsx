@@ -1,264 +1,274 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, RefreshControl, Alert,
+  View, Text, FlatList, TouchableOpacity, StyleSheet,
+  ActivityIndicator, RefreshControl, Animated, PanResponder, Dimensions,
 } from 'react-native'
+import { useNavigation } from '@react-navigation/native'
+import { Ionicons } from '@expo/vector-icons'
 import { supabase } from '../lib/supabase'
-import { fetchMessages, markRead, confirmShift, WorkerMessage } from '../lib/api'
+import { fetchThreads, archiveerThread, ChatThread } from '../lib/api'
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const { width: W } = Dimensions.get('window')
 
-const TYPE_COLORS: Record<string, string> = {
-  info:     '#60a5fa',
-  shift:    '#a78bfa',
-  document: '#fb923c',
-  actie:    '#f87171',
+function fmtTime(iso: string) {
+  const d = new Date(iso)
+  const now = new Date()
+  const isToday = d.toDateString() === now.toDateString()
+  if (isToday) return d.toLocaleTimeString('nl-BE', { hour: '2-digit', minute: '2-digit' })
+  const yesterday = new Date(now)
+  yesterday.setDate(now.getDate() - 1)
+  if (d.toDateString() === yesterday.toDateString()) return 'gisteren'
+  return d.toLocaleDateString('nl-BE', { weekday: 'short' })
 }
 
-function typeColor(type: string) {
-  return TYPE_COLORS[type] ?? '#888'
+function initials(name: string | null | undefined) {
+  if (!name) return '?'
+  return name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
-function relTime(iso: string) {
-  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
-  if (diff < 60)    return `${diff}s geleden`
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m geleden`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}u geleden`
-  return `${Math.floor(diff / 86400)}d geleden`
-}
+// ── Swipeable thread row ──────────────────────────────────────────────────────
 
-// ── Screen ────────────────────────────────────────────────────────────────────
+function ThreadRow({ thread, onPress, onArchive }: {
+  thread: ChatThread
+  onPress: () => void
+  onArchive: () => void
+}) {
+  const translateX = useRef(new Animated.Value(0)).current
+  const archiveBtnW = 88
 
-export default function InboxScherm() {
-  const [employeeId, setEmployeeId] = useState<string | null>(null)
-  const [messages,   setMessages]   = useState<WorkerMessage[]>([])
-  const [loading,    setLoading]    = useState(true)
-  const [refreshing, setRefreshing] = useState(false)
-  const [selected,   setSelected]   = useState<WorkerMessage | null>(null)
-  const [confirming, setConfirming] = useState(false)
-  const [confirmed,  setConfirmed]  = useState<Set<string>>(new Set())
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy),
+      onPanResponderMove: (_, g) => {
+        if (g.dx < 0) translateX.setValue(Math.max(g.dx, -archiveBtnW - 20))
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dx < -archiveBtnW / 2) {
+          Animated.spring(translateX, { toValue: -archiveBtnW, useNativeDriver: true }).start()
+        } else {
+          Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start()
+        }
+      },
+    })
+  ).current
 
-  async function resolveEmployeeId() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user?.phone) return null
-    const { data: emp } = await supabase
-      .from('employees')
-      .select('id')
-      .ilike('phone', `%${user.phone.replace(/\D/g, '').slice(-9)}%`)
-      .limit(1)
-      .single()
-    return emp?.id ?? null
+  function handleArchive() {
+    Animated.timing(translateX, { toValue: -W, duration: 200, useNativeDriver: true })
+      .start(onArchive)
   }
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true)
-
-    let empId = employeeId
-    if (!empId) {
-      empId = await resolveEmployeeId()
-      if (empId) setEmployeeId(empId)
-    }
-
-    if (empId) {
-      try {
-        const msgs = await fetchMessages(empId)
-        setMessages(msgs)
-      } catch {
-        // silently ignore, show stale data
-      }
-    }
-
-    setLoading(false)
-    setRefreshing(false)
-  }, [employeeId])
-
-  useEffect(() => { load() }, [])
-
-  async function openMessage(msg: WorkerMessage) {
-    setSelected(msg)
-    if (!msg.gelezen && employeeId) {
-      try {
-        await markRead(employeeId, msg.id)
-        setMessages(prev =>
-          prev.map(m => m.id === msg.id ? { ...m, gelezen: true } : m),
-        )
-      } catch { /* ignore */ }
-    }
-  }
-
-  async function handleConfirm() {
-    if (!selected || !employeeId) return
-    setConfirming(true)
-    try {
-      await confirmShift(employeeId, selected.id)
-      setConfirmed(prev => new Set(prev).add(selected.id))
-      setMessages(prev =>
-        prev.map(m => m.id === selected.id ? { ...m, actie_gedaan: true } : m),
-      )
-      setSelected(prev => prev ? { ...prev, actie_gedaan: true } : prev)
-    } catch {
-      Alert.alert('Fout', 'Bevestiging mislukt. Probeer opnieuw.')
-    } finally {
-      setConfirming(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <View style={s.center}>
-        <ActivityIndicator color="#fff" />
-      </View>
-    )
-  }
-
-  // ── Detail view ──────────────────────────────────────────────────────────────
-
-  if (selected) {
-    const isDone = selected.actie_gedaan || confirmed.has(selected.id)
-    return (
-      <ScrollView style={s.container} contentContainerStyle={s.pad}>
-        <TouchableOpacity onPress={() => setSelected(null)} style={s.backBtn}>
-          <Text style={s.backText}>← Terug</Text>
-        </TouchableOpacity>
-
-        <View style={s.detailHeader}>
-          <View style={[s.typePill, { backgroundColor: typeColor(selected.type) + '22', borderColor: typeColor(selected.type) + '44' }]}>
-            <Text style={[s.typePillText, { color: typeColor(selected.type) }]}>{selected.type}</Text>
-          </View>
-          <Text style={s.detailTitle}>{selected.titel}</Text>
-          <Text style={s.detailTime}>{relTime(selected.aangemaakt_op)}</Text>
-        </View>
-
-        <View style={s.bodyBlock}>
-          <Text style={s.bodyText}>{selected.inhoud || '—'}</Text>
-        </View>
-
-        {selected.actie_vereist && (
-          isDone ? (
-            <View style={s.confirmedRow}>
-              <Text style={s.confirmedText}>✓ Shift bevestigd</Text>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={[s.confirmBtn, confirming && s.confirmBtnDisabled]}
-              onPress={handleConfirm}
-              disabled={confirming}
-            >
-              {confirming
-                ? <ActivityIndicator color="#0a0a0a" size="small" />
-                : <Text style={s.confirmBtnText}>Bevestig shift</Text>
-              }
-            </TouchableOpacity>
-          )
-        )}
-      </ScrollView>
-    )
-  }
-
-  // ── List view ────────────────────────────────────────────────────────────────
-
-  const unread = messages.filter(m => !m.gelezen).length
+  const preview = thread.laatste_bericht
+  const isUnread = thread.ongelezen_count > 0
 
   return (
-    <ScrollView
-      style={s.container}
-      contentContainerStyle={s.pad}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor="#fff" />}
-    >
-      <View style={s.headerRow}>
-        <Text style={s.pageTitle}>Inbox</Text>
-        {unread > 0 && (
-          <View style={s.unreadBadge}>
-            <Text style={s.unreadCount}>{unread}</Text>
-          </View>
-        )}
+    <View style={row.wrap}>
+      {/* Archive button behind */}
+      <View style={row.archiveBg}>
+        <TouchableOpacity style={row.archiveBtn} onPress={handleArchive}>
+          <Ionicons name="archive-outline" size={18} color="#fff" />
+          <Text style={row.archiveTxt}>Archiveer</Text>
+        </TouchableOpacity>
       </View>
 
-      {messages.length === 0 ? (
-        <Text style={s.empty}>Geen berichten</Text>
-      ) : (
-        messages.map(msg => (
-          <TouchableOpacity
-            key={msg.id}
-            style={[s.card, !msg.gelezen && s.cardUnread]}
-            onPress={() => openMessage(msg)}
-          >
-            <View style={s.cardLeft}>
-              {!msg.gelezen && <View style={s.unreadDot} />}
-              <View style={{ flex: 1 }}>
-                <View style={s.cardTopRow}>
-                  <View style={[s.typePill, { backgroundColor: typeColor(msg.type) + '22', borderColor: typeColor(msg.type) + '44' }]}>
-                    <Text style={[s.typePillText, { color: typeColor(msg.type) }]}>{msg.type}</Text>
-                  </View>
-                  <Text style={s.cardTime}>{relTime(msg.aangemaakt_op)}</Text>
-                </View>
-                <Text style={[s.cardTitle, !msg.gelezen && s.cardTitleUnread]} numberOfLines={1}>
-                  {msg.titel}
-                </Text>
-                {msg.inhoud ? (
-                  <Text style={s.cardSub} numberOfLines={1}>{msg.inhoud}</Text>
-                ) : null}
-              </View>
+      {/* Foreground */}
+      <Animated.View style={{ transform: [{ translateX }] }} {...panResponder.panHandlers}>
+        <TouchableOpacity style={row.item} onPress={onPress} activeOpacity={0.75}>
+          {/* Avatar */}
+          <View style={[row.avatar, isUnread && row.avatarUnread]}>
+            <Text style={row.avatarText}>
+              {initials(preview?.afzender_naam ?? thread.title)}
+            </Text>
+          </View>
+
+          {/* Content */}
+          <View style={row.textArea}>
+            <View style={row.topLine}>
+              <Text style={[row.title, isUnread && row.titleBold]} numberOfLines={1}>{thread.title ?? 'Studer'}</Text>
+              <Text style={row.time}>{thread.laatste_bericht_at ? fmtTime(thread.laatste_bericht_at) : ''}</Text>
             </View>
-            {msg.actie_vereist && (
-              <View style={[s.actieBadge, msg.actie_gedaan && s.actieBadgeDone]}>
-                <Text style={[s.actieBadgeText, msg.actie_gedaan && s.actieBadgeTextDone]}>
-                  {msg.actie_gedaan ? '✓' : '!'}
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))
-      )}
-    </ScrollView>
+            <View style={row.bottomLine}>
+              <Text
+                style={[row.preview, preview?.type === 'systeem' && row.previewItalic]}
+                numberOfLines={1}
+              >
+                {preview?.inhoud ?? 'Geen berichten'}
+              </Text>
+              {isUnread && (
+                <View style={row.badge}>
+                  <Text style={row.badgeTxt}>{thread.ongelezen_count > 99 ? '99+' : thread.ongelezen_count}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
   )
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+const row = StyleSheet.create({
+  wrap:         { position: 'relative', overflow: 'hidden' },
+  archiveBg:    {
+    position: 'absolute', right: 0, top: 0, bottom: 0,
+    width: 88, backgroundColor: '#f87171',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+  },
+  archiveBtn:   { alignItems: 'center', gap: 2 },
+  archiveTxt:   { fontSize: 10, color: '#fff', fontWeight: '600' },
+  item:         {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 20, paddingVertical: 14,
+    backgroundColor: '#0a0a0a',
+  },
+  avatar:       {
+    width: 46, height: 46, borderRadius: 23,
+    backgroundColor: '#1a2e1a', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0,
+  },
+  avatarUnread: { backgroundColor: '#003d22' },
+  avatarText:   { fontSize: 16, fontWeight: '700', color: '#4ade80' },
+  textArea:     { flex: 1, gap: 3 },
+  topLine:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  title:        { fontSize: 14, color: '#999', flex: 1 },
+  titleBold:    { color: '#fff', fontWeight: '600' },
+  time:         { fontSize: 11, color: '#444', marginLeft: 8, flexShrink: 0 },
+  bottomLine:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  preview:      { fontSize: 12, color: '#444', flex: 1 },
+  previewItalic:{ fontStyle: 'italic', color: '#383838' },
+  badge:        {
+    backgroundColor: '#00B67A', borderRadius: 10,
+    minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5,
+    marginLeft: 8, flexShrink: 0,
+  },
+  badgeTxt:     { fontSize: 10, fontWeight: '700', color: '#fff' },
+})
+
+// ── Main screen ───────────────────────────────────────────────────────────────
+
+export default function InboxScherm() {
+  const navigation = useNavigation<any>()
+  const [loading,    setLoading]    = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [empId,      setEmpId]      = useState<string | null>(null)
+  const [threads,    setThreads]    = useState<ChatThread[]>([])
+  const [archived,   setArchived]   = useState<ChatThread[]>([])
+  const [tab,        setTab]        = useState<'inbox' | 'gearchiveerd'>('inbox')
+
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); setRefreshing(false); return }
+
+    let eid = empId
+    if (!eid) {
+      if (user.phone) {
+        const { data: emp } = await supabase
+          .from('employees').select('id')
+          .ilike('phone', `%${user.phone.replace(/\D/g, '').slice(-9)}%`)
+          .limit(1).single()
+        eid = emp?.id ?? null
+      }
+      if (!eid && user.email) {
+        const { data: emp2 } = await supabase
+          .from('employees').select('id').eq('email', user.email).limit(1).single()
+        eid = emp2?.id ?? null
+      }
+      if (eid) setEmpId(eid)
+    }
+
+    if (eid) {
+      try {
+        const [inbox, arch] = await Promise.all([
+          fetchThreads(eid, false),
+          fetchThreads(eid, true),
+        ])
+        setThreads(inbox)
+        setArchived(arch)
+      } catch { /* ignore */ }
+    }
+    setLoading(false)
+    setRefreshing(false)
+  }, [empId])
+
+  useEffect(() => { load() }, [load])
+
+  async function handleArchive(thread: ChatThread) {
+    if (!empId) return
+    try { await archiveerThread(empId, thread.id) } catch { /* ignore */ }
+    setThreads(prev => prev.filter(t => t.id !== thread.id))
+    setArchived(prev => [{ ...thread, gearchiveerd: true }, ...prev])
+  }
+
+  async function handleUnarchive(thread: ChatThread) {
+    if (!empId) return
+    try { await archiveerThread(empId, thread.id) } catch { /* ignore */ }
+    setArchived(prev => prev.filter(t => t.id !== thread.id))
+    setThreads(prev => [{ ...thread, gearchiveerd: false }, ...prev])
+  }
+
+  const current = tab === 'inbox' ? threads : archived
+  const unreadCount = threads.filter(t => t.ongelezen_count > 0).length
+
+  if (loading) return <View style={s.center}><ActivityIndicator color="#fff" /></View>
+
+  return (
+    <View style={s.container}>
+      <Text style={s.pageTitle}>Berichten</Text>
+
+      {/* Tabs */}
+      <View style={s.tabs}>
+        <TouchableOpacity
+          style={[s.tab, tab === 'inbox' && s.tabActive]}
+          onPress={() => setTab('inbox')}
+        >
+          <Text style={[s.tabText, tab === 'inbox' && s.tabTextActive]}>
+            Inbox{unreadCount > 0 ? ` (${unreadCount})` : ''}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.tab, tab === 'gearchiveerd' && s.tabActive]}
+          onPress={() => setTab('gearchiveerd')}
+        >
+          <Text style={[s.tabText, tab === 'gearchiveerd' && s.tabTextActive]}>Gearchiveerd</Text>
+        </TouchableOpacity>
+      </View>
+
+      {current.length === 0 ? (
+        <View style={s.empty}>
+          <Ionicons name="chatbubble-outline" size={40} color="#222" />
+          <Text style={s.emptyText}>
+            {tab === 'inbox' ? 'Geen berichten' : 'Geen gearchiveerde gesprekken'}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={current}
+          keyExtractor={t => t.id}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} tintColor="#fff" />}
+          renderItem={({ item }) => (
+            <ThreadRow
+              thread={item}
+              onPress={() => navigation.navigate('Chat', { threadId: item.id, title: item.title ?? 'Studer', empId })}
+              onArchive={() => tab === 'inbox' ? handleArchive(item) : handleUnarchive(item)}
+            />
+          )}
+          ItemSeparatorComponent={() => <View style={s.separator} />}
+        />
+      )}
+    </View>
+  )
+}
 
 const s = StyleSheet.create({
-  container:           { flex: 1, backgroundColor: '#0a0a0a' },
-  center:              { flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center' },
-  pad:                 { padding: 20, paddingTop: 60 },
-
-  headerRow:           { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 },
-  pageTitle:           { fontSize: 20, fontWeight: '700', color: '#fff' },
-  unreadBadge:         { backgroundColor: '#3b82f6', borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
-  unreadCount:         { fontSize: 11, fontWeight: '700', color: '#fff' },
-
-  empty:               { color: '#333', fontSize: 13, textAlign: 'center', marginTop: 40 },
-
-  card:                { backgroundColor: '#111', borderWidth: 1, borderColor: '#1e1e1e', borderRadius: 12, padding: 14, marginBottom: 10 },
-  cardUnread:          { borderColor: '#1d3a5c' },
-  cardLeft:            { flexDirection: 'row', alignItems: 'flex-start', gap: 8, flex: 1 },
-  unreadDot:           { width: 7, height: 7, borderRadius: 4, backgroundColor: '#3b82f6', marginTop: 5, flexShrink: 0 },
-  cardTopRow:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  cardTitle:           { fontSize: 13, fontWeight: '500', color: '#aaa' },
-  cardTitleUnread:     { color: '#fff', fontWeight: '600' },
-  cardSub:             { fontSize: 11, color: '#444', marginTop: 2 },
-  cardTime:            { fontSize: 10, color: '#444' },
-
-  typePill:            { borderWidth: 1, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 1 },
-  typePillText:        { fontSize: 9, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-
-  actieBadge:          { width: 22, height: 22, borderRadius: 11, backgroundColor: '#f87171', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', flexShrink: 0, marginLeft: 8 },
-  actieBadgeDone:      { backgroundColor: '#16a34a' },
-  actieBadgeText:      { fontSize: 11, fontWeight: '700', color: '#fff' },
-  actieBadgeTextDone:  { fontSize: 12 },
-
-  // Detail
-  backBtn:             { marginBottom: 16 },
-  backText:            { color: '#60a5fa', fontSize: 14 },
-  detailHeader:        { marginBottom: 16 },
-  detailTitle:         { fontSize: 20, fontWeight: '700', color: '#fff', marginTop: 8, marginBottom: 4 },
-  detailTime:          { fontSize: 11, color: '#555' },
-  bodyBlock:           { backgroundColor: '#0d0d0d', borderRadius: 12, padding: 16, marginBottom: 20 },
-  bodyText:            { fontSize: 13, color: '#aaa', lineHeight: 20 },
-
-  confirmBtn:          { backgroundColor: '#4ade80', borderRadius: 12, paddingVertical: 14, alignItems: 'center' },
-  confirmBtnDisabled:  { opacity: 0.5 },
-  confirmBtnText:      { fontSize: 14, fontWeight: '700', color: '#0a0a0a' },
-
-  confirmedRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, backgroundColor: '#0d2318', borderWidth: 1, borderColor: '#16a34a44' },
-  confirmedText:       { fontSize: 14, fontWeight: '600', color: '#4ade80' },
+  container:    { flex: 1, backgroundColor: '#0a0a0a', paddingTop: 64 },
+  center:       { flex: 1, backgroundColor: '#0a0a0a', alignItems: 'center', justifyContent: 'center' },
+  pageTitle:    { fontSize: 20, fontWeight: '700', color: '#fff', marginBottom: 16, paddingHorizontal: 20 },
+  tabs:         { flexDirection: 'row', backgroundColor: '#111', marginHorizontal: 20, borderRadius: 12, padding: 4, marginBottom: 8 },
+  tab:          { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
+  tabActive:    { backgroundColor: '#1e1e1e' },
+  tabText:      { fontSize: 12, color: '#444' },
+  tabTextActive:{ color: '#fff', fontWeight: '600' },
+  separator:    { height: 1, backgroundColor: '#0f0f0f' },
+  empty:        { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  emptyText:    { fontSize: 13, color: '#333' },
 })
